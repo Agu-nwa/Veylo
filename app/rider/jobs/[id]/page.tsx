@@ -1,3 +1,4 @@
+import { requirePageRole } from "@/lib/server/auth/page-guards";
 import { Footer } from "@/components/shared/Footer";
 import { Header } from "@/components/shared/Header";
 import { RealRiderJobDetail } from "@/components/rider/RealRiderJobDetail";
@@ -7,6 +8,8 @@ export default async function RiderJobDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requirePageRole(["RIDER", "ADMIN"]);
+
   const { id } = await params;
 
   return (

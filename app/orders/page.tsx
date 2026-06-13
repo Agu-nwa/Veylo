@@ -1,8 +1,11 @@
+import { requirePageAuth } from "@/lib/server/auth/page-guards";
 import { Footer } from "@/components/shared/Footer";
 import { Header } from "@/components/shared/Header";
 import { RealOrdersList } from "@/components/orders/RealOrdersList";
 
-export default function OrdersPage() {
+export default async function OrdersPage() {
+  await requirePageAuth();
+
   return (
     <>
       <Header />

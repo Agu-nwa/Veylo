@@ -1,8 +1,11 @@
+import { requirePageRole } from "@/lib/server/auth/page-guards";
 import { Footer } from "@/components/shared/Footer";
 import { Header } from "@/components/shared/Header";
 import { RealBusinessPlan } from "@/components/business/RealBusinessPlan";
 
-export default function BusinessPlanPage() {
+export default async function BusinessPlanPage() {
+  await requirePageRole(["BUSINESS", "ADMIN"]);
+
   return (
     <>
       <Header />

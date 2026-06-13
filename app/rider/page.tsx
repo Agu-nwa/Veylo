@@ -1,3 +1,4 @@
+import { requirePageRole } from "@/lib/server/auth/page-guards";
 import { ActionCard } from "@/components/dashboard/ActionCard";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { DataRow } from "@/components/dashboard/DataRow";
@@ -20,7 +21,9 @@ const checklist = [
   "Move to delivery point and confirm recipient",
 ];
 
-export default function RiderConsolePage() {
+export default async function RiderConsolePage() {
+  await requirePageRole(["RIDER", "ADMIN"]);
+
   return (
     <DashboardShell
       eyebrow="Rider console"

@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-BASE_URL="http://localhost:3000"
+BASE_URL="${BASE_URL:-http://localhost:3000}"
 
-ROUTES=(
+PUBLIC_ROUTES=(
   "/"
   "/how-it-works"
   "/services"
@@ -20,12 +20,20 @@ ROUTES=(
   "/markets"
   "/book"
   "/book/confirmed"
+  "/login"
+  "/register"
+  "/robots.txt"
+  "/sitemap.xml"
+  "/manifest.webmanifest"
+  "/api/health"
+  "/api/health/models"
+)
+
+PROTECTED_ROUTES=(
   "/orders"
   "/orders/VYL-2401"
   "/dashboard"
   "/profile"
-  "/login"
-  "/register"
   "/business/dashboard"
   "/business/new-delivery"
   "/business/history"
@@ -49,11 +57,6 @@ ROUTES=(
   "/admin/disputes"
   "/admin/analytics"
   "/admin/audit-logs"
-  "/robots.txt"
-  "/sitemap.xml"
-  "/manifest.webmanifest"
-  "/api/health"
-  "/api/health/models"
 )
 
 echo "Testing Veylo routes against $BASE_URL"
@@ -61,10 +64,25 @@ echo "----------------------------------------"
 
 FAILED=0
 
-for route in "${ROUTES[@]}"; do
+echo "Public routes must return 200"
+for route in "${PUBLIC_ROUTES[@]}"; do
   STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL$route")
 
   if [ "$STATUS" = "200" ]; then
+    echo "✅ $STATUS $route"
+  else
+    echo "❌ $STATUS $route"
+    FAILED=1
+  fi
+done
+
+echo "----------------------------------------"
+echo "Protected routes may return 200 or redirect codes"
+
+for route in "${PROTECTED_ROUTES[@]}"; do
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL$route")
+
+  if [ "$STATUS" = "200" ] || [ "$STATUS" = "302" ] || [ "$STATUS" = "303" ] || [ "$STATUS" = "307" ] || [ "$STATUS" = "308" ]; then
     echo "✅ $STATUS $route"
   else
     echo "❌ $STATUS $route"

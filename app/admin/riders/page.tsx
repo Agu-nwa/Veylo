@@ -1,8 +1,11 @@
+import { requirePageRole } from "@/lib/server/auth/page-guards";
 import { Footer } from "@/components/shared/Footer";
 import { Header } from "@/components/shared/Header";
 import { RealAdminRiders } from "@/components/admin/RealAdminRiders";
 
-export default function AdminRidersPage() {
+export default async function AdminRidersPage() {
+  await requirePageRole(["ADMIN"]);
+
   return (
     <>
       <Header />
