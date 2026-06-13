@@ -58,7 +58,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <div className="min-h-screen pb-24 lg:pb-0">{children}</div>
+        <a href="#main-content" className="skip-link">
+          Skip to content
+        </a>
+        <div id="main-content" className="min-h-screen pb-24 lg:pb-0">
+          {children}
+        </div>
         <MobileBottomNav />
       </body>
     </html>

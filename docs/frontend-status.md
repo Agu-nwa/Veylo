@@ -2,13 +2,13 @@
 
 ## Current Build Status
 
-Veylo frontend MVP shell is built and production build is passing.
+Veylo frontend MVP shell is complete, polished, production-build passing, and smoke-test passing.
 
 ## Brand
 
 Brand name: Veylo  
 Product category: Owerri-first logistics platform  
-Positioning: verified rider booking for deliveries, errands, and business logistics across Owerri.
+Positioning: verified rider booking for deliveries, errands, express delivery, and business logistics across Owerri.
 
 ## Public Routes
 
@@ -19,6 +19,7 @@ Positioning: verified rider booking for deliveries, errands, and business logist
 - /pricing
 - /safety
 - /riders
+- /riders/apply
 - /support
 - /support/new
 - /faqs
@@ -87,8 +88,11 @@ These are frontend-only internal operations screens. They are not linked from th
 - Admin operations dashboard and sub-pages
 - Support ticket form
 - Login, register, profile, business request, rider application
-- Mobile bottom navigation
+- Mobile bottom navigation with active state
+- Accessibility skip link
 - PWA manifest
+- robots.txt and sitemap.xml
+- Smoke test script
 - Developer docs in /docs
 
 ## Important Product Notes
@@ -123,4 +127,4 @@ Developer handoff and backend notes must stay in /docs only, not public app rout
 
 ## Backend Readiness
 
-Ready for backend planning and integration.
+Frontend is ready for backend implementation.
