@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/client/api";
 import { Panel } from "@/components/dashboard/Panel";
 import { StatusChip } from "@/components/shared/StatusChip";
+import { RiderDocumentUploadPanel } from "@/components/rider/RiderDocumentUploadPanel";
+import { RiderTrainingChecklist } from "@/components/rider/RiderTrainingChecklist";
 
 type RiderProfile = {
   id?: string;
@@ -24,6 +26,13 @@ type RiderProfile = {
   proofComplianceRate?: number;
   tier: string;
   suspensionStatus?: string;
+  documents?: Array<{
+    _id?: string;
+    id?: string;
+    type?: string;
+    url?: string;
+    status?: string;
+  }>;
 };
 
 type RiderProfileResponse = {
@@ -289,6 +298,10 @@ export function RealRiderProfile() {
             {saving ? "Saving..." : "Save rider profile"}
           </button>
         </form>
+
+        <RiderDocumentUploadPanel initialDocuments={profile?.documents ?? []} />
+
+        <RiderTrainingChecklist initialDocuments={profile?.documents ?? []} />
       </section>
 
       <Panel

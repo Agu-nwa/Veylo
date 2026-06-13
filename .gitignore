@@ -58,3 +58,7 @@ customer-cookies.txt
 # uploaded local proof files
 public/uploads/proofs/*
 !public/uploads/proofs/.gitkeep
+
+# uploaded local rider documents
+public/uploads/rider-documents/*
+!public/uploads/rider-documents/.gitkeep

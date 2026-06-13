@@ -10,6 +10,7 @@ import { DisputeModel } from "@/lib/server/models/Dispute";
 import { PricingQuoteModel } from "@/lib/server/models/PricingQuote";
 import { PricingRuleModel } from "@/lib/server/models/PricingRule";
 import { RiderProfileModel } from "@/lib/server/models/RiderProfile";
+import { UserModel } from "@/lib/server/models/User";
 import { SupportTicketModel } from "@/lib/server/models/SupportTicket";
 import { createTimelineEvent } from "@/lib/server/orders/timeline";
 import {
@@ -190,6 +191,42 @@ export async function adminAssignRider(
   };
 }
 
+
+function hasApprovedRiderDocument(rider: any, documentType: string) {
+  return (rider.documents ?? []).some(
+    (document: any) =>
+      document.type === documentType && document.status === "APPROVED"
+  );
+}
+
+function assertRiderVerificationReadiness(rider: any) {
+  const hasGovernmentId = hasApprovedRiderDocument(rider, "GOVERNMENT_ID");
+  const hasTraining = hasApprovedRiderDocument(
+    rider,
+    "TRAINING_ACKNOWLEDGEMENT"
+  );
+  const hasBikeDocument =
+    hasApprovedRiderDocument(rider, "BIKE_DOCUMENT") ||
+    hasApprovedRiderDocument(rider, "BIKE_PERMISSION");
+
+  const missing = [];
+
+  if (!hasGovernmentId) missing.push("approved government ID");
+  if (!hasBikeDocument) missing.push("approved bike document or bike permission");
+  if (!hasTraining) missing.push("approved training acknowledgement");
+
+  if (missing.length) {
+    throw new AppError(
+      `Rider cannot be verified until they have ${missing.join(", ")}.`,
+      422,
+      "RIDER_VERIFICATION_REQUIREMENTS_NOT_MET",
+      {
+        missing,
+      }
+    );
+  }
+}
+
 export async function listAdminRiders(user: SessionUser) {
   assertAdmin(user);
 
@@ -215,6 +252,10 @@ export async function adminUpdateRiderVerification(
     suspensionStatus: rider.suspensionStatus,
   };
 
+  if (input.verificationStatus === "VERIFIED") {
+    assertRiderVerificationReadiness(rider);
+  }
+
   rider.verificationStatus = input.verificationStatus;
 
   if (input.tier) rider.tier = input.tier;
@@ -226,6 +267,17 @@ export async function adminUpdateRiderVerification(
   }
 
   await rider.save();
+
+  if (input.verificationStatus === "VERIFIED") {
+    const linkedUser = await UserModel.findById(rider.userId);
+
+    if (linkedUser && linkedUser.role !== "ADMIN") {
+      linkedUser.role = "RIDER";
+      linkedUser.accountStatus = "ACTIVE";
+      linkedUser.verificationStatus = "VERIFIED";
+      await linkedUser.save();
+    }
+  }
 
   await createAuditLog({
     actorId: user.userId,

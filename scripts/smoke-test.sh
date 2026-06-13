@@ -11,6 +11,7 @@ ROUTES=(
   "/safety"
   "/riders"
   "/riders/apply"
+  "/riders/status"
   "/support"
   "/support/new"
   "/faqs"

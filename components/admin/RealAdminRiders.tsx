@@ -1,15 +1,24 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
 import { apiRequest } from "@/lib/client/api";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { Panel } from "@/components/dashboard/Panel";
 import { StatusChip } from "@/components/shared/StatusChip";
+import { AdminRiderDocumentReview } from "@/components/admin/AdminRiderDocumentReview";
+
+type RiderDocument = {
+  _id?: string;
+  id?: string;
+  type?: string;
+  url?: string;
+  status?: "PENDING" | "APPROVED" | "REJECTED";
+};
 
 type RiderProfile = {
-  id: string;
-  userId?: string;
+  id?: string;
+  _id?: string;
   displayName: string;
   phone: string;
   residentialArea?: string;
@@ -17,14 +26,15 @@ type RiderProfile = {
   dispatchExperience?: string;
   referencePhone?: string;
   verificationStatus: string;
+  tier: string;
+  suspensionStatus?: string;
   rating?: number;
   completedJobs?: number;
   acceptanceRate?: number;
   completionRate?: number;
   disputeRate?: number;
   proofComplianceRate?: number;
-  tier: string;
-  suspensionStatus?: string;
+  documents?: RiderDocument[];
   createdAt?: string;
 };
 
@@ -32,48 +42,69 @@ type RidersResponse = {
   riders: RiderProfile[];
 };
 
-type RiderVerificationResponse = {
+type VerificationResponse = {
   rider: RiderProfile;
 };
 
-const verificationStatuses = [
-  "PENDING",
-  "UNDER_REVIEW",
-  "VERIFIED",
-  "SUSPENDED",
-  "REJECTED",
-];
-
-const tiers = ["NEW", "STANDARD", "PRIORITY", "SUSPENDED"];
-const suspensionStatuses = ["NONE", "TEMPORARY", "INDEFINITE"];
+function itemId(item: { id?: string; _id?: string }) {
+  return item.id || item._id || "";
+}
 
 function statusTone(status: string) {
-  if (["VERIFIED", "PRIORITY"].includes(status)) return "success" as const;
-  if (["PENDING", "UNDER_REVIEW", "NEW", "STANDARD"].includes(status)) {
-    return "warning" as const;
-  }
-  if (["SUSPENDED", "REJECTED", "INDEFINITE", "TEMPORARY"].includes(status)) {
-    return "danger" as const;
-  }
+  if (status === "VERIFIED") return "success" as const;
+  if (["PENDING", "UNDER_REVIEW"].includes(status)) return "warning" as const;
+  if (["SUSPENDED", "REJECTED"].includes(status)) return "danger" as const;
   return "info" as const;
+}
+
+function documentHealth(documents?: RiderDocument[]) {
+  const docs = documents ?? [];
+
+  if (!docs.length) return "No documents";
+
+  const approved = docs.filter((document) => document.status === "APPROVED").length;
+  const rejected = docs.filter((document) => document.status === "REJECTED").length;
+
+  return `${approved}/${docs.length} approved${rejected ? ` · ${rejected} rejected` : ""}`;
+}
+
+
+function riderVerificationReadiness(documents?: RiderDocument[]) {
+  const docs = documents ?? [];
+
+  const hasApproved = (type: string) =>
+    docs.some((document) => document.type === type && document.status === "APPROVED");
+
+  const hasGovernmentId = hasApproved("GOVERNMENT_ID");
+  const hasTraining = hasApproved("TRAINING_ACKNOWLEDGEMENT");
+  const hasBikeDocument = hasApproved("BIKE_DOCUMENT") || hasApproved("BIKE_PERMISSION");
+
+  const missing = [];
+
+  if (!hasGovernmentId) missing.push("approved government ID");
+  if (!hasBikeDocument) missing.push("approved bike document or bike permission");
+  if (!hasTraining) missing.push("approved training acknowledgement");
+
+  return {
+    ready: missing.length === 0,
+    missing,
+  };
 }
 
 export function RealAdminRiders() {
   const [riders, setRiders] = useState<RiderProfile[]>([]);
-  const [selectedRiderId, setSelectedRiderId] = useState("");
-  const [verificationStatus, setVerificationStatus] = useState("VERIFIED");
+  const [selectedId, setSelectedId] = useState("");
+  const [verificationStatus, setVerificationStatus] = useState("UNDER_REVIEW");
   const [tier, setTier] = useState("STANDARD");
   const [suspensionStatus, setSuspensionStatus] = useState("NONE");
-  const [reason, setReason] = useState("Admin rider verification review");
+  const [reason, setReason] = useState("Admin reviewed rider verification status.");
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
-  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
 
-  const selectedRider = useMemo(
-    () => riders.find((rider) => rider.id === selectedRiderId) ?? null,
-    [riders, selectedRiderId]
-  );
+  const selectedRider =
+    riders.find((rider) => itemId(rider) === selectedId) ?? riders[0] ?? null;
 
   async function loadRiders() {
     try {
@@ -81,15 +112,15 @@ export function RealAdminRiders() {
       setLoading(true);
 
       const response = await apiRequest<RidersResponse>("/api/admin/riders");
-      const loadedRiders = response.data?.riders ?? [];
+      const loaded = response.data?.riders ?? [];
 
-      setRiders(loadedRiders);
+      setRiders(loaded);
 
-      if (!selectedRiderId && loadedRiders.length) {
-        const first = loadedRiders[0];
-        setSelectedRiderId(first.id);
-        setVerificationStatus(first.verificationStatus || "PENDING");
-        setTier(first.tier || "NEW");
+      if (!selectedId && loaded.length) {
+        const first = loaded[0];
+        setSelectedId(itemId(first));
+        setVerificationStatus(first.verificationStatus || "UNDER_REVIEW");
+        setTier(first.tier || "STANDARD");
         setSuspensionStatus(first.suspensionStatus || "NONE");
       }
     } catch (err) {
@@ -100,24 +131,25 @@ export function RealAdminRiders() {
   }
 
   function selectRider(rider: RiderProfile) {
-    setSelectedRiderId(rider.id);
-    setVerificationStatus(rider.verificationStatus || "PENDING");
-    setTier(rider.tier || "NEW");
+    setSelectedId(itemId(rider));
+    setVerificationStatus(rider.verificationStatus || "UNDER_REVIEW");
+    setTier(rider.tier || "STANDARD");
     setSuspensionStatus(rider.suspensionStatus || "NONE");
+    setReason(`Admin reviewed ${rider.displayName}.`);
     setNotice("");
     setError("");
   }
 
-  async function updateRider() {
-    if (!selectedRiderId) return;
+  async function updateVerification() {
+    if (!selectedRider) return;
 
     try {
       setError("");
       setNotice("");
-      setUpdating(true);
+      setSaving(true);
 
-      const response = await apiRequest<RiderVerificationResponse>(
-        `/api/admin/riders/${selectedRiderId}/verification`,
+      const response = await apiRequest<VerificationResponse>(
+        `/api/admin/riders/${itemId(selectedRider)}/verification`,
         {
           method: "PATCH",
           body: JSON.stringify({
@@ -129,14 +161,17 @@ export function RealAdminRiders() {
         }
       );
 
-      const updatedRider = response.data?.rider;
+      const updated = response.data?.rider;
 
-      if (updatedRider) {
+      if (updated) {
         setRiders((current) =>
           current.map((rider) =>
-            rider.id === updatedRider.id ? updatedRider : rider
+            itemId(rider) === itemId(updated) ? updated : rider
           )
         );
+        setVerificationStatus(updated.verificationStatus);
+        setTier(updated.tier);
+        setSuspensionStatus(updated.suspensionStatus || "NONE");
       }
 
       setNotice("Rider verification updated successfully.");
@@ -145,7 +180,7 @@ export function RealAdminRiders() {
         err instanceof Error ? err.message : "Could not update rider verification"
       );
     } finally {
-      setUpdating(false);
+      setSaving(false);
     }
   }
 
@@ -156,7 +191,7 @@ export function RealAdminRiders() {
   if (loading) {
     return (
       <section className="card rounded-[32px] p-6">
-        <p className="text-sm text-[#667085]">Loading real riders...</p>
+        <p className="text-sm text-[#667085]">Loading real rider records...</p>
       </section>
     );
   }
@@ -166,11 +201,11 @@ export function RealAdminRiders() {
       <section className="card rounded-[32px] p-6 md:p-8">
         <StatusChip tone="warning">Admin access required</StatusChip>
         <h1 className="mt-5 text-[32px] font-medium leading-tight tracking-[-0.05em] text-[#071a2f] md:text-[42px]">
-          Rider records are protected.
+          Rider operations are protected.
         </h1>
         <p className="mt-4 max-w-2xl text-sm leading-6 text-[#667085]">
-          This page now connects to protected admin rider APIs. Login with the
-          seeded ADMIN account to view and manage rider verification.
+          Login as admin to review rider applications, documents, verification
+          status, suspension state, tier, and performance metrics.
         </p>
 
         <div className="mt-7 flex flex-col gap-3 sm:flex-row">
@@ -181,10 +216,10 @@ export function RealAdminRiders() {
             Login as admin
           </Link>
           <Link
-            href="/riders/apply"
+            href="/admin"
             className="rounded-full border border-[#d8d0c3] bg-[#fffdf8] px-5 py-3 text-center text-sm font-medium text-[#071a2f]"
           >
-            Rider application
+            Admin overview
           </Link>
         </div>
       </section>
@@ -195,30 +230,29 @@ export function RealAdminRiders() {
   const pending = riders.filter((rider) =>
     ["PENDING", "UNDER_REVIEW"].includes(rider.verificationStatus)
   );
-  const suspended = riders.filter((rider) =>
-    ["SUSPENDED", "REJECTED"].includes(rider.verificationStatus)
-  );
+  const suspended = riders.filter((rider) => rider.verificationStatus === "SUSPENDED");
+  const withDocuments = riders.filter((rider) => (rider.documents ?? []).length > 0);
 
-  const metricCards = [
+  const metrics = [
     {
       label: "Total riders",
       value: String(riders.length),
-      note: "All rider profiles",
+      note: "Profiles and applicants",
     },
     {
       label: "Verified",
       value: String(verified.length),
-      note: "Eligible for dispatch assignment",
+      note: "Can receive rider jobs",
     },
     {
       label: "Pending review",
       value: String(pending.length),
-      note: "Needs admin decision",
+      note: "Needs admin verification",
     },
     {
-      label: "Suspended/rejected",
-      value: String(suspended.length),
-      note: "Not eligible for dispatch",
+      label: "With documents",
+      value: String(withDocuments.length),
+      note: `${suspended.length} suspended`,
     },
   ];
 
@@ -229,11 +263,11 @@ export function RealAdminRiders() {
           <div>
             <StatusChip tone="success">Real rider admin</StatusChip>
             <h1 className="mt-5 text-[32px] font-medium leading-tight tracking-[-0.05em] text-[#071a2f] md:text-[42px]">
-              Rider verification and operations.
+              Rider verification and documents.
             </h1>
             <p className="mt-4 max-w-3xl text-sm leading-6 text-[#667085]">
-              This page reads real rider profiles from MongoDB and updates rider
-              verification through protected admin APIs.
+              Review rider applications, approve submitted documents, verify
+              qualified riders, suspend risky riders, and manage rider tiers.
             </p>
           </div>
 
@@ -247,7 +281,7 @@ export function RealAdminRiders() {
         </div>
 
         <div className="mt-7 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {metricCards.map((metric) => (
+          {metrics.map((metric) => (
             <MetricCard key={metric.label} {...metric} />
           ))}
         </div>
@@ -255,130 +289,189 @@ export function RealAdminRiders() {
 
       <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
         <Panel
-          title="Rider profiles"
-          body="Real rider profiles available for verification and dispatch eligibility review."
+          title="Rider queue"
+          body="Select a rider to review details, documents, and verification status."
         >
           {riders.length ? (
             <div className="grid gap-3">
-              {riders.map((rider) => (
-                <button
-                  key={rider.id}
-                  type="button"
-                  onClick={() => selectRider(rider)}
-                  className={`rounded-2xl border p-4 text-left transition ${
-                    selectedRiderId === rider.id
-                      ? "border-[#071a2f] bg-[#071a2f] text-white"
-                      : "border-[#e5ded2] bg-[#fffdf8] text-[#071a2f] hover:border-[#071a2f]/30"
-                  }`}
-                >
-                  <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-medium">{rider.displayName}</p>
-                        <StatusChip tone={statusTone(rider.verificationStatus)}>
-                          {rider.verificationStatus.replaceAll("_", " ").toLowerCase()}
-                        </StatusChip>
+              {riders.map((rider) => {
+                const id = itemId(rider);
+
+                return (
+                  <button
+                    key={id || rider.phone}
+                    type="button"
+                    onClick={() => selectRider(rider)}
+                    className={`rounded-2xl border p-4 text-left transition ${
+                      selectedId === id
+                        ? "border-[#071a2f] bg-[#071a2f] text-white"
+                        : "border-[#e5ded2] bg-[#fffdf8] text-[#071a2f] hover:border-[#071a2f]/30"
+                    }`}
+                  >
+                    <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-medium">{rider.displayName}</p>
+                          <StatusChip tone={statusTone(rider.verificationStatus)}>
+                            {rider.verificationStatus.replaceAll("_", " ").toLowerCase()}
+                          </StatusChip>
+                          <StatusChip tone="info">{rider.tier}</StatusChip>
+                        </div>
+
+                        <p
+                          className={`mt-2 text-xs leading-5 ${
+                            selectedId === id ? "text-white/70" : "text-[#667085]"
+                          }`}
+                        >
+                          {rider.phone} · {rider.residentialArea || "No area"}
+                        </p>
+
+                        <p
+                          className={`mt-1 text-[11px] ${
+                            selectedId === id ? "text-white/60" : "text-[#98a2b3]"
+                          }`}
+                        >
+                          {documentHealth(rider.documents)}
+                        </p>
                       </div>
 
-                      <p
-                        className={`mt-2 text-xs leading-5 ${
-                          selectedRiderId === rider.id
-                            ? "text-white/70"
-                            : "text-[#667085]"
-                        }`}
-                      >
-                        {rider.phone} · {rider.residentialArea || "Area not set"}
-                      </p>
-
-                      <p
-                        className={`mt-1 text-[11px] ${
-                          selectedRiderId === rider.id
-                            ? "text-white/60"
-                            : "text-[#98a2b3]"
-                        }`}
-                      >
-                        {rider.tier} · {rider.completedJobs ?? 0} completed jobs
+                      <p className="text-xs">
+                        {rider.createdAt
+                          ? new Date(rider.createdAt).toLocaleDateString()
+                          : ""}
                       </p>
                     </div>
-
-                    <p className="text-sm font-medium">
-                      {rider.rating ? `${rider.rating}/5` : "No rating"}
-                    </p>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <div className="rounded-2xl border border-[#e5ded2] bg-[#fffdf8] p-5">
               <p className="text-sm leading-6 text-[#667085]">
-                No riders yet. Run the local rider seed script or let rider
-                applicants register before review.
+                No rider profiles yet. Rider applications from /riders/apply
+                will appear here.
               </p>
+              <Link
+                href="/riders/apply"
+                className="mt-4 inline-flex rounded-full bg-[#071a2f] px-5 py-3 text-sm font-medium text-white"
+              >
+                Open rider application
+              </Link>
             </div>
           )}
         </Panel>
 
         <Panel
-          title="Verification decision"
-          body="Update rider eligibility. Verified riders can be assigned in dispatch."
+          title="Selected rider"
+          body="Review profile, documents, verification, suspension, and tier."
         >
           {selectedRider ? (
             <div>
               <div className="rounded-[24px] border border-[#e5ded2] bg-[#fffdf8] p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-lg font-medium tracking-[-0.035em] text-[#071a2f]">
-                      {selectedRider.displayName}
-                    </p>
-                    <p className="mt-1 text-xs text-[#667085]">
-                      {selectedRider.phone}
-                    </p>
-                  </div>
-
+                  <p className="text-lg font-medium tracking-[-0.035em] text-[#071a2f]">
+                    {selectedRider.displayName}
+                  </p>
                   <StatusChip tone={statusTone(selectedRider.verificationStatus)}>
                     {selectedRider.verificationStatus.replaceAll("_", " ").toLowerCase()}
                   </StatusChip>
                 </div>
 
-                <div className="mt-5 grid gap-3 text-sm text-[#667085]">
-                  <p>Area: {selectedRider.residentialArea || "Not set"}</p>
-                  <p>Bike: {selectedRider.bikeAccessType || "Not set"}</p>
-                  <p>Experience: {selectedRider.dispatchExperience || "Not set"}</p>
-                  <p>Completion: {selectedRider.completionRate ?? 0}%</p>
-                  <p>Proof compliance: {selectedRider.proofComplianceRate ?? 0}%</p>
+                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                  {[
+                    ["Phone", selectedRider.phone],
+                    ["Area", selectedRider.residentialArea || "Not set"],
+                    [
+                      "Bike access",
+                      selectedRider.bikeAccessType?.replaceAll("_", " ").toLowerCase() ||
+                        "Not set",
+                    ],
+                    [
+                      "Experience",
+                      selectedRider.dispatchExperience?.replaceAll("_", " ").toLowerCase() ||
+                        "Not set",
+                    ],
+                    ["Reference", selectedRider.referencePhone || "Not set"],
+                    ["Documents", documentHealth(selectedRider.documents)],
+                    ["Completed jobs", String(selectedRider.completedJobs ?? 0)],
+                    ["Proof compliance", `${selectedRider.proofComplianceRate ?? 0}%`],
+                  ].map(([label, value]) => (
+                    <div
+                      key={label}
+                      className="rounded-2xl border border-[#e5ded2] bg-[#fffdf8] p-4"
+                    >
+                      <p className="text-xs text-[#667085]">{label}</p>
+                      <p className="mt-1 break-all text-sm font-medium text-[#071a2f]">
+                        {value}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              <div className="mt-5 rounded-[24px] border border-[#e5ded2] bg-[#fffdf8] p-5">
-                <label>
-                  <span className="label">Verification status</span>
-                  <select
-                    className="field"
-                    value={verificationStatus}
-                    onChange={(event) => setVerificationStatus(event.target.value)}
-                  >
-                    {verificationStatuses.map((status) => (
-                      <option key={status} value={status}>
-                        {status.replaceAll("_", " ")}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+              <AdminRiderDocumentReview
+                riderId={itemId(selectedRider)}
+                documents={selectedRider.documents ?? []}
+                onReviewed={loadRiders}
+              />
 
-                <label className="mt-4 block">
-                  <span className="label">Tier</span>
-                  <select
-                    className="field"
-                    value={tier}
-                    onChange={(event) => setTier(event.target.value)}
+              {(() => {
+                const readiness = riderVerificationReadiness(selectedRider.documents);
+
+                return (
+                  <div
+                    className={`mt-5 rounded-2xl border p-4 text-sm leading-6 ${
+                      readiness.ready
+                        ? "border-[#b7dfcf] bg-[#e8f6ef] text-[#1f7a55]"
+                        : "border-[#f2d59b] bg-[#fff5dc] text-[#8a5a00]"
+                    }`}
                   >
-                    {tiers.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    {readiness.ready
+                      ? "Rider has the required approved documents for verification."
+                      : `Before verification, approve: ${readiness.missing.join(", ")}.`}
+                  </div>
+                );
+              })()}
+
+              <div className="mt-5 rounded-[24px] border border-[#e5ded2] bg-[#fffdf8] p-5">
+                <p className="text-sm font-medium text-[#071a2f]">
+                  Verification decision
+                </p>
+                <p className="mt-2 text-xs leading-5 text-[#667085]">
+                  Verifying a rider promotes the linked user account into RIDER
+                  access. Suspension blocks trust and tier progression.
+                </p>
+
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  <label>
+                    <span className="label">Verification status</span>
+                    <select
+                      className="field"
+                      value={verificationStatus}
+                      onChange={(event) => setVerificationStatus(event.target.value)}
+                    >
+                      <option value="PENDING">Pending</option>
+                      <option value="UNDER_REVIEW">Under review</option>
+                      <option value="VERIFIED">Verified</option>
+                      <option value="SUSPENDED">Suspended</option>
+                      <option value="REJECTED">Rejected</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    <span className="label">Tier</span>
+                    <select
+                      className="field"
+                      value={tier}
+                      onChange={(event) => setTier(event.target.value)}
+                    >
+                      <option value="NEW">New</option>
+                      <option value="STANDARD">Standard</option>
+                      <option value="PRIORITY">Priority</option>
+                      <option value="SUSPENDED">Suspended</option>
+                    </select>
+                  </label>
+                </div>
 
                 <label className="mt-4 block">
                   <span className="label">Suspension status</span>
@@ -387,11 +480,9 @@ export function RealAdminRiders() {
                     value={suspensionStatus}
                     onChange={(event) => setSuspensionStatus(event.target.value)}
                   >
-                    {suspensionStatuses.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
+                    <option value="NONE">None</option>
+                    <option value="TEMPORARY">Temporary</option>
+                    <option value="INDEFINITE">Indefinite</option>
                   </select>
                 </label>
 
@@ -419,17 +510,17 @@ export function RealAdminRiders() {
 
                 <button
                   type="button"
-                  onClick={updateRider}
-                  disabled={updating || reason.trim().length < 5}
+                  onClick={updateVerification}
+                  disabled={saving || reason.trim().length < 5}
                   className="mt-5 rounded-full bg-[#071a2f] px-5 py-3 text-sm font-medium text-white disabled:opacity-60"
                 >
-                  {updating ? "Updating..." : "Update rider"}
+                  {saving ? "Updating..." : "Update rider verification"}
                 </button>
               </div>
             </div>
           ) : (
             <p className="text-sm leading-6 text-[#667085]">
-              Select a rider profile to update verification status.
+              Select a rider to review.
             </p>
           )}
         </Panel>
