@@ -50,6 +50,8 @@ ROUTES=(
   "/robots.txt"
   "/sitemap.xml"
   "/manifest.webmanifest"
+  "/api/health"
+  "/api/health/models"
 )
 
 echo "Testing Veylo routes against $BASE_URL"
