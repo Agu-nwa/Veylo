@@ -47,6 +47,7 @@ ROUTES=(
   "/admin/quotes"
   "/admin/disputes"
   "/admin/analytics"
+  "/admin/audit-logs"
   "/robots.txt"
   "/sitemap.xml"
   "/manifest.webmanifest"

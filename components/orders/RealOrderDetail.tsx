@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/client/api";
 import { StatusChip } from "@/components/shared/StatusChip";
+import { OrderCancellationBox } from "@/components/orders/OrderCancellationBox";
+import { OrderProofPanel } from "@/components/proofs/OrderProofPanel";
 
 type DeliveryOrder = {
   orderId: string;
@@ -110,6 +112,7 @@ export function RealOrderDetail({ orderId }: { orderId: string }) {
           This order detail page is now backend-powered. You need to be logged in
           as the customer, rider, or admin allowed to view this order.
         </p>
+
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <Link
             href="/login"
@@ -205,6 +208,10 @@ export function RealOrderDetail({ orderId }: { orderId: string }) {
             </p>
           ) : null}
         </div>
+
+                <OrderProofPanel orderId={order.orderId} />
+
+        <OrderCancellationBox orderId={order.orderId} currentStatus={order.status} />
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <Link

@@ -377,6 +377,7 @@ export function RealAdminOverview() {
               ["Quotes", "/admin/quotes"],
               ["Disputes", "/admin/disputes"],
               ["Analytics", "/admin/analytics"],
+              ["Audit logs", "/admin/audit-logs"],
             ].map(([label, href]) => (
               <Link
                 key={href}

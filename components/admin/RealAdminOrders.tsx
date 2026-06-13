@@ -6,6 +6,8 @@ import { apiRequest } from "@/lib/client/api";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { Panel } from "@/components/dashboard/Panel";
 import { StatusChip } from "@/components/shared/StatusChip";
+import { OrderCancellationBox } from "@/components/orders/OrderCancellationBox";
+import { AdminAssignRiderBox } from "@/components/admin/AdminAssignRiderBox";
 
 type AdminOrder = {
   orderId: string;
@@ -389,6 +391,20 @@ export function RealAdminOrders() {
                 >
                   View order detail
                 </Link>
+
+                <AdminAssignRiderBox orderId={selectedOrder.orderId} />
+
+                <OrderCancellationBox
+                  orderId={selectedOrder.orderId}
+                  currentStatus={selectedOrder.status}
+                  compact
+                />
+
+                <OrderCancellationBox
+                  orderId={selectedOrder.orderId}
+                  currentStatus={selectedOrder.status}
+                  compact
+                />
               </div>
 
               <div className="mt-5 rounded-[24px] border border-[#e5ded2] bg-[#fffdf8] p-5">

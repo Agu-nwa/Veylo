@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/client/api";
 import { Panel } from "@/components/dashboard/Panel";
 import { StatusChip } from "@/components/shared/StatusChip";
+import { OrderProofPanel } from "@/components/proofs/OrderProofPanel";
 
 type RiderJob = {
   orderId: string;
@@ -316,6 +317,8 @@ export function RealRiderJobDetail({ orderId }: { orderId: string }) {
             </p>
           ) : null}
         </div>
+
+        <OrderProofPanel orderId={job.orderId} />
 
         <div className="mt-6 grid gap-4">
           {job.status === "ASSIGNING_RIDER" ? (

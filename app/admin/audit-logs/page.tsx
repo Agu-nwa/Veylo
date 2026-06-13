@@ -1,13 +1,13 @@
 import { Footer } from "@/components/shared/Footer";
 import { Header } from "@/components/shared/Header";
-import { RealAdminAnalytics } from "@/components/admin/RealAdminAnalytics";
+import { RealAdminAuditLogs } from "@/components/admin/RealAdminAuditLogs";
 
-export default function AdminAnalyticsPage() {
+export default function AdminAuditLogsPage() {
   return (
     <>
       <Header />
       <main className="container-shell py-10 md:py-14">
-        <RealAdminAnalytics />
+        <RealAdminAuditLogs />
       </main>
       <Footer />
     </>

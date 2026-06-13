@@ -54,3 +54,7 @@ business-cookies.txt
 admin-cookies.txt
 rider-cookies.txt
 customer-cookies.txt
+
+# uploaded local proof files
+public/uploads/proofs/*
+!public/uploads/proofs/.gitkeep
