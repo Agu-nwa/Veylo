@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { apiRequest } from "@/lib/client/api";
-import { FormField } from "@/components/auth/FormField";
 
 type AuthResponse = {
   user: {
@@ -17,6 +16,13 @@ type AuthResponse = {
     verificationStatus: string;
   };
 };
+
+function redirectForRole(role?: string) {
+  if (role === "ADMIN") return "/admin";
+  if (role === "BUSINESS") return "/business/dashboard";
+  if (role === "RIDER") return "/rider";
+  return "/book";
+}
 
 export function LoginForm() {
   const router = useRouter();
@@ -31,7 +37,7 @@ export function LoginForm() {
       setError("");
       setLoading(true);
 
-      await apiRequest<AuthResponse>("/api/auth/login", {
+      const response = await apiRequest<AuthResponse>("/api/auth/login", {
         method: "POST",
         body: JSON.stringify({
           identifier,
@@ -39,7 +45,8 @@ export function LoginForm() {
         }),
       });
 
-      router.push("/book");
+      const role = response.data?.user.role;
+      router.push(redirectForRole(role));
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
@@ -54,8 +61,8 @@ export function LoginForm() {
         Welcome back
       </h2>
       <p className="mt-3 text-sm leading-6 text-[#667085]">
-        Log in to create real quotes, orders, support tickets, and account-linked
-        delivery history.
+        Log in to create real quotes, orders, support tickets, rider jobs,
+        business dashboards, and admin operations.
       </p>
 
       <form className="mt-7 grid gap-5">
@@ -101,7 +108,7 @@ export function LoginForm() {
           href="/book"
           className="rounded-full border border-[#d8d0c3] bg-[#fffdf8] px-5 py-3 text-center text-sm font-medium text-[#071a2f]"
         >
-          Continue to booking
+          Customer booking
         </Link>
         <Link
           href="/support"

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AccountMenu } from "@/components/shared/AccountMenu";
 
 const navItems = [
   { href: "/services", label: "Services" },
@@ -33,20 +34,7 @@ export function Header() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
-          <Link
-            href="/login"
-            className="hidden rounded-full border border-[#d8d0c3] bg-[#fffdf8] px-4 py-2 text-sm font-medium text-[#071a2f] transition hover:border-[#071a2f]/30 sm:inline-flex"
-          >
-            Login
-          </Link>
-          <Link
-            href="/book"
-            className="rounded-full bg-[#071a2f] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-[#102a43]"
-          >
-            Estimate fare
-          </Link>
-        </div>
+        <AccountMenu />
       </div>
     </header>
   );
