@@ -11,7 +11,8 @@
     "seed:admin": "node scripts/seed-admin.mjs",
     "seed:rider": "node scripts/seed-rider.mjs",
     "seed:business": "node scripts/seed-business.mjs",
-    "audit:production": "./scripts/production-audit.sh"
+    "audit:production": "./scripts/production-audit.sh",
+    "test:roles": "./scripts/role-flow-test.sh"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
